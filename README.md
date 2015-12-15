@@ -1,6 +1,6 @@
 BMP085 (I2C) .NET
 ==============
-An Universal (UWP) .NET library 
+An Universal (UWP) .NET library for BMP085 Sensor
 
 Tested on Rasbperry Pi 2 With Windows 10 IoT
 

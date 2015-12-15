@@ -32,9 +32,7 @@
 ************************************************************************/
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using Windows.Devices.Enumeration;
 using Windows.Devices.I2c;
@@ -43,12 +41,15 @@ namespace org.baget.BMP085Lib
 {
     public class BMP085 : IDisposable
     {
+        /// <summary>
+        /// Default I2C Address
+        /// </summary>
         public const int DEFAULT_ADDR = 0x77;
 
-        /*=========================================================================
-        REGISTERS Address
-        -----------------------------------------------------------------------*/
-        enum BMP085_REGISTER : byte
+        /// <summary>
+        /// REGISTERS Address
+        /// </summary>
+        private enum BMP085_REGISTER : byte
         {
             BMP085_REGISTER_CAL_AC1 = 0xAA,  // R   Calibration data (16 bits)
             BMP085_REGISTER_CAL_AC2 = 0xAC,  // R   Calibration data (16 bits)
@@ -72,9 +73,9 @@ namespace org.baget.BMP085Lib
         };
         /*=========================================================================*/
 
-        /*=========================================================================
-            MODE SETTINGS
-            -----------------------------------------------------------------------*/
+        /// <summary>
+        /// Working Mode
+        /// </summary>
         public enum BMP085_MODE : byte
         {
             BMP085_MODE_ULTRALOWPOWER = 0,
@@ -83,10 +84,9 @@ namespace org.baget.BMP085Lib
             BMP085_MODE_ULTRAHIGHRES = 3
         }
 
-        /*=========================================================================*/
-        /*=========================================================================
-            CALIBRATION DATA
-            -----------------------------------------------------------------------*/
+        /// <summary>
+        /// CALIBRATION DATA
+        /// </summary>
         private struct bmp085_calib_data
         {
             public Int16 ac1;
@@ -106,20 +106,39 @@ namespace org.baget.BMP085Lib
         private I2cDevice _i2cdevice;
         private bmp085_calib_data _bmp085_coeffs;
 
+
+        /// <summary>
+        /// I2C Address
+        /// </summary>
         public int Address { get; set; }
+
+        /// <summary>
+        /// Working Mode
+        /// </summary>
         public BMP085_MODE Mode { get; set; }
 
 
+        /// <summary>
+        /// Default Constructor, using high resolution mode and default address
+        /// </summary>
         public BMP085() : this(DEFAULT_ADDR, BMP085_MODE.BMP085_MODE_ULTRAHIGHRES)
         {
         }
 
+        /// <summary>
+        /// Constructor
+        /// </summary>
+        /// <param name="addr">Device I2C Address</param>
+        /// <param name="mode">Working Mode</param>
         public BMP085(int addr, BMP085_MODE mode)
         {
             Address = addr;
             Mode = mode;
         }
 
+        /// <summary>
+        /// Connect to Device
+        /// </summary>
         public void Connect()
         {
             var settings = new I2cConnectionSettings(Address);
@@ -154,59 +173,10 @@ namespace org.baget.BMP085Lib
 
         }
 
-        private void writeCommand(BMP085_REGISTER reg, byte value)
-        {
-            byte[] writeBuf = new byte[] { (byte)reg, value };
-
-            _i2cdevice.Write(writeBuf);
-        }
-
-        private byte read8(BMP085_REGISTER reg)
-        {
-            var readAddr = new byte[] { (byte)reg };
-            var readbuf = new byte[sizeof(byte)];
-
-            _i2cdevice.WriteRead(readAddr, readbuf);
-
-            return readbuf[0];
-        }
-
-        private UInt16 read16(BMP085_REGISTER reg)
-        {
-            var readAddr = new byte[] { (byte)reg };
-            var readbuf = new byte[sizeof(UInt16)];
-
-            _i2cdevice.WriteRead(readAddr, readbuf);
-        
-            return BitConverter.ToUInt16(readbuf.Reverse().ToArray(), 0);
-        }
-
-        private Int16 readS16(BMP085_REGISTER reg)
-        {
-            var readAddr = new byte[] { (byte)reg };
-            var readbuf = new byte[sizeof(Int16)];
-
-            _i2cdevice.WriteRead(readAddr, readbuf);
-
-            return BitConverter.ToInt16(readbuf.Reverse().ToArray(), 0);
-        }
-
-        private void readCoefficients()
-        {
-            _bmp085_coeffs.ac1 = readS16(BMP085_REGISTER.BMP085_REGISTER_CAL_AC1);
-            _bmp085_coeffs.ac2 = readS16(BMP085_REGISTER.BMP085_REGISTER_CAL_AC2);
-            _bmp085_coeffs.ac3 = readS16(BMP085_REGISTER.BMP085_REGISTER_CAL_AC3);
-            _bmp085_coeffs.ac4 = read16(BMP085_REGISTER.BMP085_REGISTER_CAL_AC4);
-            _bmp085_coeffs.ac5 = read16(BMP085_REGISTER.BMP085_REGISTER_CAL_AC5);
-            _bmp085_coeffs.ac6 = read16(BMP085_REGISTER.BMP085_REGISTER_CAL_AC6);
-            _bmp085_coeffs.b1 = readS16(BMP085_REGISTER.BMP085_REGISTER_CAL_B1);
-            _bmp085_coeffs.b2 = readS16(BMP085_REGISTER.BMP085_REGISTER_CAL_B2);
-            _bmp085_coeffs.mb = readS16(BMP085_REGISTER.BMP085_REGISTER_CAL_MB);
-            _bmp085_coeffs.mc = readS16(BMP085_REGISTER.BMP085_REGISTER_CAL_MC);
-            _bmp085_coeffs.md = readS16(BMP085_REGISTER.BMP085_REGISTER_CAL_MD);
-        }
-
-
+        /// <summary>
+        /// Read Raw Temperature Value from the device
+        /// </summary>
+        /// <returns>Raw Temperature</returns>
         public Int32 readRawTemperature()
         {
             UInt16 t;
@@ -220,6 +190,10 @@ namespace org.baget.BMP085Lib
             return t;
         }
 
+        /// <summary>
+        /// Read Raw Pressure Value from the device
+        /// </summary>
+        /// <returns>Raw Pressure</returns>
         public Int32 readRawPressure()
         {
             byte p8;
@@ -254,22 +228,11 @@ namespace org.baget.BMP085Lib
 
             return p32;
         }
-        /**************************************************************************/
-        /*!
-            @brief  Compute B5 coefficient used in temperature & pressure calcs.
-        */
-        /**************************************************************************/
-        private Int32 computeB5(Int32 ut)
-        {
-            Int32 X1 = (ut - (Int32)_bmp085_coeffs.ac6) * ((Int32)_bmp085_coeffs.ac5) >> 15;
-            Int32 X2 = ((Int32)_bmp085_coeffs.mc << 11) / (X1 + (Int32)_bmp085_coeffs.md);
-            return X1 + X2;
-        }
-        /**************************************************************************/
-        /*!
-            @brief  Reads the temperatures in degrees Celsius
-        */
-        /**************************************************************************/
+
+        /// <summary>
+        ///  Reads the temperatures in degrees Celsius
+        /// </summary>
+        /// <returns>temperatures in degrees Celsius</returns>
         public decimal getTemperature()
         {
             Int32 UT, B5;     // following ds convention
@@ -284,11 +247,10 @@ namespace org.baget.BMP085Lib
             return t;
         }
 
-        /**************************************************************************/
-        /*!
-            @brief  Gets the compensated pressure level in kPa
-        */
-        /**************************************************************************/
+        /// <summary>
+        /// Gets the compensated pressure level in kPa
+        /// </summary>
+        /// <returns>pressure level in kPa</returns>
         public decimal getPressure()
         {
             decimal compp = 0;
@@ -334,6 +296,11 @@ namespace org.baget.BMP085Lib
         }
 
 
+        /// <summary>
+        /// Get Compute Altitude 
+        /// </summary>
+        /// <param name="sealevelPressure">Sea Level Pressure</param>
+        /// <returns>Altitude in meters</returns>
         public decimal getAltitude(decimal sealevelPressure)
         {
             decimal altitude;
@@ -345,11 +312,84 @@ namespace org.baget.BMP085Lib
             return altitude;
         }
 
+        /// <summary>
+        /// Get Sealevel Pressure
+        /// </summary>
+        /// <param name="altitude_meters">Altitude in meters</param>
+        /// <returns>Sealevel Pressure</returns>
         public UInt32 getSealevelPressure(decimal altitude_meters)
         {
             decimal pressure = getPressure();
             return (UInt32)(pressure / (decimal)(Math.Pow(1.0 - (float)altitude_meters / 44330, 5.255)));
         }
+
+
+        /// <summary>
+        /// Compute B5 coefficient used in temperature & pressure calcs.
+        /// </summary>
+        /// <param name="ut"></param>
+        /// <returns>B5 coefficient </returns>
+        private Int32 computeB5(Int32 ut)
+        {
+            Int32 X1 = (ut - (Int32)_bmp085_coeffs.ac6) * ((Int32)_bmp085_coeffs.ac5) >> 15;
+            Int32 X2 = ((Int32)_bmp085_coeffs.mc << 11) / (X1 + (Int32)_bmp085_coeffs.md);
+            return X1 + X2;
+        }
+
+        #region Read and Write Private Functions
+        private void writeCommand(BMP085_REGISTER reg, byte value)
+        {
+            byte[] writeBuf = new byte[] { (byte)reg, value };
+
+            _i2cdevice.Write(writeBuf);
+        }
+
+        private byte read8(BMP085_REGISTER reg)
+        {
+            var readAddr = new byte[] { (byte)reg };
+            var readbuf = new byte[sizeof(byte)];
+
+            _i2cdevice.WriteRead(readAddr, readbuf);
+
+            return readbuf[0];
+        }
+
+        private UInt16 read16(BMP085_REGISTER reg)
+        {
+            var readAddr = new byte[] { (byte)reg };
+            var readbuf = new byte[sizeof(UInt16)];
+
+            _i2cdevice.WriteRead(readAddr, readbuf);
+
+            return BitConverter.ToUInt16(readbuf.Reverse().ToArray(), 0);
+        }
+
+        private Int16 readS16(BMP085_REGISTER reg)
+        {
+            var readAddr = new byte[] { (byte)reg };
+            var readbuf = new byte[sizeof(Int16)];
+
+            _i2cdevice.WriteRead(readAddr, readbuf);
+
+            return BitConverter.ToInt16(readbuf.Reverse().ToArray(), 0);
+        }
+
+        private void readCoefficients()
+        {
+            _bmp085_coeffs.ac1 = readS16(BMP085_REGISTER.BMP085_REGISTER_CAL_AC1);
+            _bmp085_coeffs.ac2 = readS16(BMP085_REGISTER.BMP085_REGISTER_CAL_AC2);
+            _bmp085_coeffs.ac3 = readS16(BMP085_REGISTER.BMP085_REGISTER_CAL_AC3);
+            _bmp085_coeffs.ac4 = read16(BMP085_REGISTER.BMP085_REGISTER_CAL_AC4);
+            _bmp085_coeffs.ac5 = read16(BMP085_REGISTER.BMP085_REGISTER_CAL_AC5);
+            _bmp085_coeffs.ac6 = read16(BMP085_REGISTER.BMP085_REGISTER_CAL_AC6);
+            _bmp085_coeffs.b1 = readS16(BMP085_REGISTER.BMP085_REGISTER_CAL_B1);
+            _bmp085_coeffs.b2 = readS16(BMP085_REGISTER.BMP085_REGISTER_CAL_B2);
+            _bmp085_coeffs.mb = readS16(BMP085_REGISTER.BMP085_REGISTER_CAL_MB);
+            _bmp085_coeffs.mc = readS16(BMP085_REGISTER.BMP085_REGISTER_CAL_MC);
+            _bmp085_coeffs.md = readS16(BMP085_REGISTER.BMP085_REGISTER_CAL_MD);
+        }
+
+        #endregion
 
         #region IDisposable Support
         private bool disposedValue = false; // To detect redundant calls
